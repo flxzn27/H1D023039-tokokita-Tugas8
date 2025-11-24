@@ -1,92 +1,214 @@
-# H1D023039 Tugas 8 (Pertemuan 10): TokoKita App
+# H1D023039 - Tugas 9 (Pertemuan 11)
+# TokoKita App (Full CRUD + REST API)
 
-Proyek ini adalah aplikasi mobile yang dibangun menggunakan Flutter sebagai bagian dari praktikum Pemrograman Mobile (Pertemuan 10). Aplikasi "TokoKita" dirancang untuk mengelola data produk (CRUD - Create, Read, Update, Delete) dan menyimulasikan interaksi dengan REST API yang dibangun menggunakan CodeIgniter 4. Aplikasi ini mencakup fitur otentikasi pengguna (Login & Registrasi) serta manajemen produk yang lengkap.
+Aplikasi Flutter yang terhubung penuh dengan REST API (CodeIgniter 4) menggunakan:
+- State Management: BLoC
+- HTTP Request: GET, POST, PUT, DELETE
+- Session Management: shared_preferences
+- Arsitektur UI terpisah dari logika bisnis
 
-## Data Diri
+# DATA DIRI
 
-* **Nama:** Alfan Fauzan Ridlo
-* **NIM:** H1D023039
-* **Shift:** B
-* **Shift KRS:** C
+Nama   : Alfan Fauzan Ridlo
 
-## Fitur Utama Aplikasi
+NIM    : H1D023039
 
-1.  **Sistem Otentikasi:** Menyediakan formulir **Login** dan **Registrasi** dengan validasi input yang ketat (Format Email, Panjang Password, dll).
-2.  **List Produk:** Menampilkan daftar produk dalam tampilan list yang rapi.
-3.  **Detail Produk:** Melihat rincian informasi produk tertentu.
-4.  **Tambah & Ubah Produk:** Menggunakan satu formulir dinamis (`reusable form`) yang dapat mendeteksi apakah pengguna sedang menambah data baru atau mengedit data lama.
-5.  **Hapus Produk:** Fitur konfirmasi dialog sebelum menghapus data produk untuk mencegah ketidaksengajaan.
-6.  **Personalisasi UI:** Menampilkan nama pengguna ("Alfan") pada setiap *AppBar* halaman sebagai identitas pembuat.
+Shift  : B
 
----
+Shift KRS : C
 
-## Penjelasan Kode & Poin Kreatif
+# FITUR UTAMA
 
-Berikut adalah rincian struktur kode utama dan modifikasi kreatif yang diterapkan dalam aplikasi ini:
+1. REST API Integration (GET, POST, PUT, DELETE)
+2. State Management berbasis BLoC
+3. Login persistent dengan shared_preferences
+4. Error handling (200, 400, 401, 500)
+5. UI dinamis + loading indicator
 
-### 1. Folder `lib/model`
+# ALUR APLIKASI & PENJELASAN KODE
 
-Bagian ini berfungsi sebagai representasi data (Object Modeling) untuk memetakan format JSON dari API ke objek Dart.
+# 1. REGISTRASI (SIGN UP)
+<img width="494" height="865" alt="Screenshot 2025-11-24 183127" src="https://github.com/user-attachments/assets/3fc19f0d-7ce5-46c8-918e-c25777d70311" />
 
-| File | Fungsi Utama |
-| :--- | :--- |
-| `login.dart` | Memodelkan respons login, termasuk token akses dan ID pengguna. |
-| `registrasi.dart` | Memodelkan respons status registrasi. |
-| `produk.dart` | Menyimpan atribut produk seperti `kodeProduk`, `namaProduk`, dan `harga`. Memiliki method `fromJson` untuk parsing data. |
+- User mengisi: Nama, Email, Password  
+- Validasi: email valid, password ≥ 6 karakter  
+- Data dikirim ke API melalui RegistrasiBloc  
 
-### 2. `lib/ui/login_page.dart` & `registrasi_page.dart`
+## Kode (UI):
 
-#### Tangkapan Layar (Screenshot)
-<img width="495" height="867" alt="Screenshot 2025-11-22 184215" src="https://github.com/user-attachments/assets/0466b04c-25f4-4ccf-8df0-66dd7b1912aa" />
-<img width="495" height="867" alt="Screenshot 2025-11-22 184226" src="https://github.com/user-attachments/assets/3a374618-ace8-4056-b674-e17871a42deb" />
+```dart
+RegistrasiBloc.registrasi(
+    nama: _namaTextboxController.text,
+    email: _emailTextboxController.text,
+    password: _passwordTextboxController.text)
+.then((value) {
+    showDialog(
+        context: context,
+        builder: (context) => SuccessDialog(
+            description: "Registrasi berhasil, silahkan login",
+        ));
+}, onError: (error) {
+    showDialog(
+        context: context,
+        builder: (context) => const WarningDialog(
+            description: "Registrasi gagal, silahkan coba lagi",
+        ));
+});
+```
+
+# 2. LOGIN (AUTHENTICATION)
+<img width="490" height="864" alt="Screenshot 2025-11-24 183148" src="https://github.com/user-attachments/assets/c51c6031-2382-4720-b746-d19a83d45cbf" />
+
+- User memasukkan Email + Password
+- Sistem mengirim request POST ke API login
+- Jika code == 200 → token & userID disimpan via shared_preferences
+- User langsung diarahkan ke halaman Produk
+
+## BLoC: login_bloc.dart
+```dart
+static Future<Login> login({String? email, String? password}) async {
+    String apiUrl = ApiUrl.login;
+    var body = {"email": email, "password": password};
+    var response = await Api().post(apiUrl, body);
+    var jsonObj = json.decode(response.body);
+    return Login.fromJson(jsonObj);
+}
+```
+## UI: login_page.dart
+
+```dart
+if (value.code == 200) {
+    await UserInfo().setToken(value.token.toString());
+    await UserInfo().setUserID(int.parse(value.userID.toString()));
+    Navigator.pushReplacement(context,
+        MaterialPageRoute(builder: (context) => const ProdukPage()));
+}
+```
+
+# 3. LIST PRODUK (READ)
+<img width="496" height="863" alt="Screenshot 2025-11-24 183408" src="https://github.com/user-attachments/assets/5512bd43-9751-4ecf-99de-e4d45e665f19" />
+
+<img width="493" height="853" alt="Screenshot 2025-11-24 183427" src="https://github.com/user-attachments/assets/245a1c1f-89e1-4828-9c7b-b9b09ca315c1" />
+
+- Halaman menampilkan data dari API menggunakan GET
+- FutureBuilder digunakan untuk load async
+- Loading spinner ketika menunggu
+- Setelah data masuk → tampil dalam ListView
+
+## BLoC: produk_bloc.dart
+
+```dart
+static Future<List<Produk>> getProduks() async {
+    String apiUrl = ApiUrl.listProduk;
+    var response = await Api().get(apiUrl);
+    var jsonObj = json.decode(response.body);
+    List<dynamic> listProduk = jsonObj['data'];
+
+    List<Produk> produks = [];
+    for (int i = 0; i < listProduk.length; i++) {
+        produks.add(Produk.fromJson(listProduk[i]));
+    }
+    return produks;
+}
+```
+
+# 4. TAMBAH PRODUK (CREATE)
+
+<img width="496" height="860" alt="Screenshot 2025-11-24 183313" src="https://github.com/user-attachments/assets/61b61ade-3a51-493c-ad5f-ba9b8f43bc46" />
+
+- User mengisi form: Kode Produk, Nama Produk, Harga, dll
+- Data dikirim ke API menggunakan POST
+- Jika sukses → kembali ke halaman List Produk
+
+## UI: produk_form.dart (Create Mode)
+
+```dart
+void simpan() {
+    Produk createProduk = Produk(id: null);
+    createProduk.kodeProduk = _kodeProdukTextboxController.text;
+    createProduk.namaProduk = _namaProdukTextboxController.text;
+
+    ProdukBloc.addProduk(produk: createProduk).then((value) {
+        Navigator.of(context).push(MaterialPageRoute(
+            builder: (context) => const ProdukPage()));
+    }, onError: (error) {
+        // tampilkan dialog error
+    });
+}
+```
+
+# 5. EDIT / UPDATE PRODUK
+
+<img width="490" height="861" alt="Screenshot 2025-11-24 183439" src="https://github.com/user-attachments/assets/fa12b47b-5af1-49c2-9d7a-cfdbe069d1ca" />
+
+<img width="491" height="852" alt="Screenshot 2025-11-24 183453" src="https://github.com/user-attachments/assets/380325f0-7178-4665-85ac-a37bc82528f2" />
 
 
-Halaman antarmuka untuk akses pengguna.
+- Data lama otomatis tampil pada form
+- Setelah diedit → dikirim ke API menggunakan PUT
+- Jika update sukses → kembali ke halaman Produk
 
-| Bagian Kode | Penjelasan Fungsi | Poin Kreatif & Perbaikan |
-| :--- | :--- | :--- |
-| **Validasi Regex** | Memvalidasi format email menggunakan *Regular Expression* (Regex) standar internasional. | Mengganti pola validasi sederhana di modul dengan Regex yang lebih akurat untuk mencegah input email palsu. |
-| **Loading State** | Variabel `_isLoading` mengontrol tampilan tombol. | Mengubah tombol menjadi `CircularProgressIndicator` saat proses berjalan, memberikan *feedback* visual yang baik ke pengguna. |
-| **Navigasi Aman** | Cek `if (!mounted) return;` setelah proses *async*. | Mencegah *error* umum "Use of BuildContext across async gaps" yang sering terjadi jika user menutup aplikasi saat loading. |
+## BLoC: produk_bloc.dart
+```dart
+static Future updateProduk({required Produk produk}) async {
+    String apiUrl = ApiUrl.updateProduk(produk.id!);
 
-### 3. `lib/ui/produk_page.dart`
+    var body = {
+      "kode_produk": produk.kodeProduk,
+      "nama_produk": produk.namaProduk,
+      "harga": produk.hargaProduk.toString()
+    };
 
-#### Tangkapan Layar (Screenshot)
-<img width="488" height="863" alt="Screenshot 2025-11-22 184304" src="https://github.com/user-attachments/assets/5892618f-febf-4786-a4b0-99b7895c1430" />
+    var response = await Api().put(apiUrl, body);
+    var jsonObj = json.decode(response.body);
+    return jsonObj['status'];
+}
+```
 
-Halaman utama yang menampilkan daftar produk.
+# 6. HAPUS PRODUK (DELETE)
 
-| Bagian Kode | Penjelasan Fungsi | Poin Kreatif |
-| :--- | :--- | :--- |
-| **ListView** | Menampilkan widget `ItemProduk` secara berurutan. | UI disusun rapi menggunakan `Card` dan `ListTile` agar mudah dibaca. |
-| **Navigation** | Navigasi ke halaman `ProdukDetail` saat item diklik, dan ke `ProdukForm` saat tombol tambah (+) diklik. | Navigasi intuitif dengan ikon yang jelas di AppBar. |
-| **Logout** | Menu Logout di dalam Drawer samping. | Menyediakan akses mudah untuk keluar aplikasi dan kembali ke halaman Login. |
+<img width="499" height="863" alt="Screenshot 2025-11-24 183504" src="https://github.com/user-attachments/assets/ed8af0ec-f755-422c-99d6-8a8c66104cc1" />
 
-### 4. `lib/ui/produk_form.dart` (Formulir Dinamis)
+- User menekan tombol Hapus pada halaman Detail
+- Muncul dialog konfirmasi: “Yakin ingin menghapus?”
+- Jika "Ya" → API DELETE dipanggil
+- Jika sukses → kembali ke List Produk
 
-#### Tangkapan Layar (Screenshot)
+## UI: produk_detail.dart
+```dart
+void confirmHapus() {
+    AlertDialog alertDialog = AlertDialog(
+      content: const Text("Yakin ingin menghapus data ini?"),
+      actions: [
+        OutlinedButton(
+          child: const Text("Ya"),
+          onPressed: () {
+            ProdukBloc.deleteProduk(id: widget.produk!.id!).then((value) {
+              Navigator.of(context).push(MaterialPageRoute(
+                  builder: (context) => const ProdukPage()));
+            });
+          },
+        ),
+        OutlinedButton(
+          child: const Text("Batal"),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ],
+    );
 
-<img width="498" height="631" alt="Screenshot 2025-11-22 184324" src="https://github.com/user-attachments/assets/16d7a3e5-4f78-4fc5-a5ab-161fa97f2355" />
+    showDialog(context: context, builder: (context) => alertDialog);
+}
+```
 
-Salah satu fitur paling efisien dalam kode ini adalah penggunaan satu halaman untuk dua fungsi.
+## BLoC (delete)
+```dart
+static Future deleteProduk({required int id}) async {
+    String apiUrl = ApiUrl.deleteProduk(id);
+    var response = await Api().delete(apiUrl);
+    var jsonObj = json.decode(response.body);
+    return jsonObj['status'];
+}
+```
+# 7. LOGOUT
 
-| Bagian Kode | Penjelasan Fungsi | Poin Kreatif |
-| :--- | :--- | :--- |
-| **Logika `isUpdate()`** | Mengecek apakah parameter `widget.produk` kosong atau tidak. | **Reusability Code:** Jika data ada, form berubah mode menjadi **"UBAH PRODUK"** dan mengisi kolom otomatis. Jika kosong, mode menjadi **"TAMBAH PRODUK"**. |
-| **Dynamic AppBar** | Judul AppBar berubah sesuai mode (`Tambah` vs `Ubah`) + Nama "Alfan". | Memberikan konteks yang jelas kepada pengguna tentang aksi yang sedang mereka lakukan. |
-
-### 5. `lib/ui/produk_detail.dart`
-
-#### Tangkapan Layar (Screenshot)
-
-<img width="494" height="603" alt="Screenshot 2025-11-22 184316" src="https://github.com/user-attachments/assets/fffd93ab-3cbc-452d-a8e7-86a99f04dff5" />
-<img width="492" height="648" alt="Screenshot 2025-11-22 184332" src="https://github.com/user-attachments/assets/feddf2ea-0e53-4a46-93be-aeb77e855ee4" />
-
-Halaman untuk melihat rincian dan menghapus produk.
-
-| Bagian Kode | Penjelasan Fungsi | Poin Kreatif |
-| :--- | :--- | :--- |
-| **Konfirmasi Hapus** | `AlertDialog` muncul saat tombol DELETE ditekan. | **User Experience (UX):** Mencegah penghapusan data yang tidak disengaja dengan meminta konfirmasi ulang "Yakin ingin menghapus data ini?". |
-| **Navigasi Edit** | Tombol EDIT mengarahkan ke `ProdukForm` dengan membawa data produk saat ini. | Memastikan data yang akan diedit langsung muncul di form tanpa perlu diketik ulang. |
-
----
+<img width="496" height="862" alt="Screenshot 2025-11-24 183419" src="https://github.com/user-attachments/assets/d76d44c4-9fc4-4b09-abfd-4b56d0f2f5b4" />
