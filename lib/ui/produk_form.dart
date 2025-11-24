@@ -1,22 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:tokokita/bloc/produk_bloc.dart';
 import 'package:tokokita/model/produk.dart';
+import 'package:tokokita/ui/produk_page.dart';
+import 'package:tokokita/widget/warning_dialog.dart';
 
 class ProdukForm extends StatefulWidget {
   final Produk? produk;
-  // Perbaikan: Super parameter
   const ProdukForm({super.key, this.produk});
 
   @override
-  // Perbaikan: Explicit return type
   State<ProdukForm> createState() => _ProdukFormState();
 }
 
 class _ProdukFormState extends State<ProdukForm> {
   final _formKey = GlobalKey<FormState>();
-
-  // Variabel ini sekarang akan dipakai di tombol, jadi warning hilang
   bool _isLoading = false;
-
   String judul = "TAMBAH PRODUK";
   String tombolSubmit = "SIMPAN";
 
@@ -69,6 +67,87 @@ class _ProdukFormState extends State<ProdukForm> {
     );
   }
 
+  Widget _buttonSubmit() {
+    return OutlinedButton(
+      child: Text(tombolSubmit),
+      onPressed: () {
+        var validate = _formKey.currentState!.validate();
+        if (validate) {
+          if (!_isLoading) {
+            if (widget.produk != null) {
+              ubah();
+            } else {
+              simpan();
+            }
+          }
+        }
+      },
+    );
+  }
+
+  void simpan() {
+    setState(() {
+      _isLoading = true;
+    });
+    Produk createProduk = Produk(id: null);
+    createProduk.kodeProduk = _kodeProdukTextboxController.text;
+    createProduk.namaProduk = _namaProdukTextboxController.text;
+    createProduk.hargaProduk = int.parse(_hargaProdukTextboxController.text);
+
+    ProdukBloc.addProduk(produk: createProduk).then(
+      (value) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (BuildContext context) => const ProdukPage(),
+          ),
+        );
+      },
+      onError: (error) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) => const WarningDialog(
+            description: "Simpan gagal, silahkan coba lagi",
+          ),
+        );
+      },
+    );
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  void ubah() {
+    setState(() {
+      _isLoading = true;
+    });
+    Produk updateProduk = Produk(id: widget.produk!.id!);
+    updateProduk.kodeProduk = _kodeProdukTextboxController.text;
+    updateProduk.namaProduk = _namaProdukTextboxController.text;
+    updateProduk.hargaProduk = int.parse(_hargaProdukTextboxController.text);
+
+    ProdukBloc.updateProduk(produk: updateProduk).then(
+      (value) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (BuildContext context) => const ProdukPage(),
+          ),
+        );
+      },
+      onError: (error) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) => const WarningDialog(
+            description: "Permintaan ubah data gagal, silahkan coba lagi",
+          ),
+        );
+      },
+    );
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  // ... (Widget TextField sama seperti sebelumnya) ...
   Widget _kodeProdukTextField() {
     return TextFormField(
       decoration: const InputDecoration(labelText: "Kode Produk"),
@@ -101,36 +180,6 @@ class _ProdukFormState extends State<ProdukForm> {
       validator: (value) {
         if (value!.isEmpty) return "Harga harus diisi";
         return null;
-      },
-    );
-  }
-
-  Widget _buttonSubmit() {
-    return OutlinedButton(
-      // Perbaikan: Memakai _isLoading di sini
-      child: _isLoading
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Text(tombolSubmit),
-      onPressed: () {
-        var validate = _formKey.currentState!.validate();
-        if (validate) {
-          setState(() {
-            _isLoading = true; // Mengubah state agar loading muncul
-          });
-          // Simulasi simpan data
-          Future.delayed(const Duration(seconds: 2), () {
-            if (!mounted) return; // Cek mounted
-            setState(() {
-              _isLoading = false;
-            });
-            // Tambahkan logika setelah simpan di sini (misal kembali ke list)
-            Navigator.pop(context);
-          });
-        }
       },
     );
   }
